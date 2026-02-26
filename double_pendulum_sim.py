@@ -178,7 +178,10 @@ def run_simulation() -> None:
         return rod_line, trace_line
 
     reset_state()
-    FuncAnimation(fig, animate, interval=16, blit=True)
+    # Keep a reference to the animation object; otherwise some backends
+    # garbage-collect it and nothing is drawn/updated.
+    animation = FuncAnimation(fig, animate, interval=16, blit=True, cache_frame_data=False)
+    fig._animation = animation
     plt.show()
 
 
