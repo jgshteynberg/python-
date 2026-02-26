@@ -21,6 +21,10 @@ M2 = 1.0
 L1 = 1.0
 L2 = 1.0
 
+# Damping (joint friction) coefficients, updated by UI sliders.
+C1 = 0.02
+C2 = 0.02
+
 
 def derivatives(state: np.ndarray, _t: float) -> np.ndarray:
     """Return time-derivative vector for the double pendulum state.
@@ -52,6 +56,10 @@ def derivatives(state: np.ndarray, _t: float) -> np.ndarray:
         - (M1 + M2) * G * np.sin(theta2)
     ) / den2
 
+    # Simple linear damping to mimic joint friction / air losses.
+    domega1 -= C1 * omega1
+    domega2 -= C2 * omega2
+
     return np.array([omega1, domega1, omega2, domega2], dtype=float)
 
 
@@ -79,7 +87,7 @@ def positions_from_state(state: np.ndarray) -> tuple[float, float, float, float]
 def run_simulation() -> None:
     """Launch interactive matplotlib simulation."""
 
-    dt = 0.01
+    base_dt = 0.005
     t = 0.0
 
     # Defaults (degrees for user-facing sliders)
@@ -89,6 +97,9 @@ def run_simulation() -> None:
     default_omega2 = 0.0
     default_l1 = 1.0
     default_l2 = 1.0
+    default_c1 = 0.02
+    default_c2 = 0.02
+    default_speed = 1.0
 
     state = np.array(
         [
@@ -101,7 +112,7 @@ def run_simulation() -> None:
     )
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    plt.subplots_adjust(left=0.2, bottom=0.48)
+    plt.subplots_adjust(left=0.2, bottom=0.60)
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlim(-2.2, 2.2)
     ax.set_ylim(-2.2, 2.2)
@@ -121,12 +132,15 @@ def run_simulation() -> None:
 
     # Sliders
     slider_color = "#ececec"
-    ax_theta1 = plt.axes([0.2, 0.29, 0.65, 0.03], facecolor=slider_color)
-    ax_theta2 = plt.axes([0.2, 0.24, 0.65, 0.03], facecolor=slider_color)
-    ax_omega1 = plt.axes([0.2, 0.19, 0.65, 0.03], facecolor=slider_color)
-    ax_omega2 = plt.axes([0.2, 0.14, 0.65, 0.03], facecolor=slider_color)
-    ax_l1 = plt.axes([0.2, 0.09, 0.65, 0.03], facecolor=slider_color)
-    ax_l2 = plt.axes([0.2, 0.04, 0.65, 0.03], facecolor=slider_color)
+    ax_theta1 = plt.axes([0.2, 0.44, 0.65, 0.03], facecolor=slider_color)
+    ax_theta2 = plt.axes([0.2, 0.39, 0.65, 0.03], facecolor=slider_color)
+    ax_omega1 = plt.axes([0.2, 0.34, 0.65, 0.03], facecolor=slider_color)
+    ax_omega2 = plt.axes([0.2, 0.29, 0.65, 0.03], facecolor=slider_color)
+    ax_l1 = plt.axes([0.2, 0.24, 0.65, 0.03], facecolor=slider_color)
+    ax_l2 = plt.axes([0.2, 0.19, 0.65, 0.03], facecolor=slider_color)
+    ax_c1 = plt.axes([0.2, 0.14, 0.65, 0.03], facecolor=slider_color)
+    ax_c2 = plt.axes([0.2, 0.09, 0.65, 0.03], facecolor=slider_color)
+    ax_speed = plt.axes([0.2, 0.04, 0.65, 0.03], facecolor=slider_color)
 
     s_theta1 = Slider(ax_theta1, "θ1 (deg)", -180.0, 180.0, valinit=default_theta1)
     s_theta2 = Slider(ax_theta2, "θ2 (deg)", -180.0, 180.0, valinit=default_theta2)
@@ -134,6 +148,9 @@ def run_simulation() -> None:
     s_omega2 = Slider(ax_omega2, "ω2 (deg/s)", -720.0, 720.0, valinit=default_omega2)
     s_l1 = Slider(ax_l1, "L1", 0.2, 2.0, valinit=default_l1)
     s_l2 = Slider(ax_l2, "L2", 0.2, 2.0, valinit=default_l2)
+    s_c1 = Slider(ax_c1, "Damping 1", 0.0, 0.2, valinit=default_c1)
+    s_c2 = Slider(ax_c2, "Damping 2", 0.0, 0.2, valinit=default_c2)
+    s_speed = Slider(ax_speed, "Speed", 0.1, 3.0, valinit=default_speed)
 
     # Buttons
     ax_reset = plt.axes([0.2, 0.0, 0.18, 0.03])
@@ -146,10 +163,12 @@ def run_simulation() -> None:
 
     def reset_state(_event=None) -> None:
         nonlocal state, t
-        global L1, L2
+        global L1, L2, C1, C2
         t = 0.0
         L1 = float(s_l1.val)
         L2 = float(s_l2.val)
+        C1 = float(s_c1.val)
+        C2 = float(s_c2.val)
         max_r = L1 + L2 + 0.2
         ax.set_xlim(-max_r, max_r)
         ax.set_ylim(-max_r, max_r)
@@ -178,8 +197,12 @@ def run_simulation() -> None:
     def animate(_frame: int):
         nonlocal state, t
         if not paused["value"]:
-            state = rk4_step(state, t, dt)
-            t += dt
+            sim_dt = base_dt * float(s_speed.val)
+            substeps = max(1, int(np.ceil(sim_dt / 0.005)))
+            dt_step = sim_dt / substeps
+            for _ in range(substeps):
+                state = rk4_step(state, t, dt_step)
+                t += dt_step
 
             x1, y1, x2, y2 = positions_from_state(state)
             trace_x.append(x2)
@@ -195,7 +218,7 @@ def run_simulation() -> None:
     reset_state()
     # Keep a reference to the animation object; otherwise some backends
     # garbage-collect it and nothing is drawn/updated.
-    animation = FuncAnimation(fig, animate, interval=16, blit=True, cache_frame_data=False)
+    animation = FuncAnimation(fig, animate, interval=16, blit=False, cache_frame_data=False)
     fig._animation = animation
     plt.show()
 

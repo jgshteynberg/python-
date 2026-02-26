@@ -27,6 +27,8 @@ A window opens with the pendulum.
 - `θ1`, `θ2` = starting angles
 - `ω1`, `ω2` = starting speeds
 - `L1`, `L2` = pendulum lengths
+- `Damping 1`, `Damping 2` = friction/air-loss feel (higher = settles faster)
+- `Speed` = simulation speed multiplier
 - **Apply / Reset** = restart using slider values
 - **Pause** = pause/resume
 
