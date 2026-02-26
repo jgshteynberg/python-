@@ -14,10 +14,12 @@ from matplotlib.widgets import Button, Slider
 
 # Physical constants
 G = 9.81
-L1 = 1.0
-L2 = 1.0
 M1 = 1.0
 M2 = 1.0
+
+# Lengths are mutable so the UI sliders can update them at runtime.
+L1 = 1.0
+L2 = 1.0
 
 
 def derivatives(state: np.ndarray, _t: float) -> np.ndarray:
@@ -85,6 +87,8 @@ def run_simulation() -> None:
     default_theta2 = -20.0
     default_omega1 = 0.0
     default_omega2 = 0.0
+    default_l1 = 1.0
+    default_l2 = 1.0
 
     state = np.array(
         [
@@ -97,7 +101,7 @@ def run_simulation() -> None:
     )
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    plt.subplots_adjust(left=0.2, bottom=0.35)
+    plt.subplots_adjust(left=0.2, bottom=0.48)
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlim(-2.2, 2.2)
     ax.set_ylim(-2.2, 2.2)
@@ -117,19 +121,23 @@ def run_simulation() -> None:
 
     # Sliders
     slider_color = "#ececec"
-    ax_theta1 = plt.axes([0.2, 0.24, 0.65, 0.03], facecolor=slider_color)
-    ax_theta2 = plt.axes([0.2, 0.19, 0.65, 0.03], facecolor=slider_color)
-    ax_omega1 = plt.axes([0.2, 0.14, 0.65, 0.03], facecolor=slider_color)
-    ax_omega2 = plt.axes([0.2, 0.09, 0.65, 0.03], facecolor=slider_color)
+    ax_theta1 = plt.axes([0.2, 0.29, 0.65, 0.03], facecolor=slider_color)
+    ax_theta2 = plt.axes([0.2, 0.24, 0.65, 0.03], facecolor=slider_color)
+    ax_omega1 = plt.axes([0.2, 0.19, 0.65, 0.03], facecolor=slider_color)
+    ax_omega2 = plt.axes([0.2, 0.14, 0.65, 0.03], facecolor=slider_color)
+    ax_l1 = plt.axes([0.2, 0.09, 0.65, 0.03], facecolor=slider_color)
+    ax_l2 = plt.axes([0.2, 0.04, 0.65, 0.03], facecolor=slider_color)
 
     s_theta1 = Slider(ax_theta1, "θ1 (deg)", -180.0, 180.0, valinit=default_theta1)
     s_theta2 = Slider(ax_theta2, "θ2 (deg)", -180.0, 180.0, valinit=default_theta2)
     s_omega1 = Slider(ax_omega1, "ω1 (deg/s)", -720.0, 720.0, valinit=default_omega1)
     s_omega2 = Slider(ax_omega2, "ω2 (deg/s)", -720.0, 720.0, valinit=default_omega2)
+    s_l1 = Slider(ax_l1, "L1", 0.2, 2.0, valinit=default_l1)
+    s_l2 = Slider(ax_l2, "L2", 0.2, 2.0, valinit=default_l2)
 
     # Buttons
-    ax_reset = plt.axes([0.2, 0.02, 0.18, 0.05])
-    ax_pause = plt.axes([0.42, 0.02, 0.18, 0.05])
+    ax_reset = plt.axes([0.2, 0.0, 0.18, 0.03])
+    ax_pause = plt.axes([0.42, 0.0, 0.18, 0.03])
 
     btn_reset = Button(ax_reset, "Apply / Reset")
     btn_pause = Button(ax_pause, "Pause")
@@ -138,7 +146,14 @@ def run_simulation() -> None:
 
     def reset_state(_event=None) -> None:
         nonlocal state, t
+        global L1, L2
         t = 0.0
+        L1 = float(s_l1.val)
+        L2 = float(s_l2.val)
+        max_r = L1 + L2 + 0.2
+        ax.set_xlim(-max_r, max_r)
+        ax.set_ylim(-max_r, max_r)
+
         state = np.array(
             [
                 np.radians(s_theta1.val),
